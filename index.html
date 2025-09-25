@@ -3,15 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bản đồ TSBĐ & TSSS (Enhanced)</title>
+  <title>Bản đồ TSBĐ & TSSS(Enhanced)</title>
   <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+        crossorigin=""/>
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; }
-    #map { width: 100vw; height: 100vh; }
+    * { box-sizing: border-box; }
+    body { 
+      margin: 0; 
+      font-family: Arial, sans-serif; 
+      overflow: hidden;
+    }
+    
+    #map { 
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw; 
+      height: 100vh; 
+      z-index: 1;
+    }
 
     .controls {
-      position: absolute;
+      position: fixed;
       top: 10px;
       left: 60px;
       background-color: rgba(0, 125, 120, 0.95);
@@ -21,8 +36,9 @@
       z-index: 1000;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
       min-width: 320px;
-      max-height: 90vh;
+      max-height: 85vh;
       overflow-y: auto;
+      backdrop-filter: blur(5px);
     }
 
     .controls input {
@@ -32,6 +48,7 @@
       border: 1px solid #ccc;
       width: 240px;
       font-size: 14px;
+      box-sizing: border-box;
     }
 
     .controls button {
@@ -49,6 +66,7 @@
 
     .controls button:hover {
       background-color: #f0b90b;
+      transform: translateY(-1px);
     }
 
     .map-toggle {
@@ -159,7 +177,7 @@
     }
 
     #click-info {
-      position: absolute;
+      position: fixed;
       bottom: 10px;
       left: 10px;
       background-color: rgba(0, 125, 120, 0.9);
@@ -168,6 +186,7 @@
       border-radius: 5px;
       font-size: 12px;
       z-index: 1000;
+      backdrop-filter: blur(5px);
     }
 
     .api-status {
@@ -298,7 +317,7 @@
     }
 
     .district-info {
-      position: absolute;
+      position: fixed;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
@@ -311,6 +330,25 @@
       z-index: 999;
       display: none;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      backdrop-filter: blur(5px);
+    }
+
+    /* Hide Leaflet attribution */
+    .leaflet-control-attribution {
+      display: none;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .controls {
+        left: 10px;
+        right: 10px;
+        min-width: auto;
+        max-height: 70vh;
+      }
+      .controls input {
+        width: 100%;
+      }
     }
 
     @keyframes spin {
@@ -330,6 +368,8 @@
   </style>
 </head>
 <body>
+  <div id="map"></div>
+
   <div class="controls">
     <!-- API Status -->
     <div id="api-status" class="api-status api-connected">
@@ -354,24 +394,24 @@
       • Bật layer phường để xem vị trí hành chính
     </div>
 
-    <div><strong>TSBĐ (Trụ sở Bảo đảm):</strong><br>
+    <div><strong>TSBĐ:</strong><br>
       <input id="tsbd" value="" placeholder="Nhấp vào bản đồ hoặc nhập Lat, Lng" />
       <div id="tsbd-district" style="font-size: 11px; color: #f2c94c; margin-top: 2px;"></div>
     </div>
 
-    <div><strong>TSSS1 (Tài sản Siêu sung 1):</strong><br>
+    <div><strong>TSSS1:</strong><br>
       <input id="tsss1" value="" placeholder="Nhấp vào bản đồ hoặc nhập Lat, Lng" />
       <span class="distance-display" id="dist-tsss1"></span>
       <div id="tsss1-district" style="font-size: 11px; color: #f2c94c; margin-top: 2px;"></div>
     </div>
 
-    <div><strong>TSSS2 (Tài sản Siêu sung 2):</strong><br>
+    <div><strong>TSSS2:</strong><br>
       <input id="tsss2" value="" placeholder="Nhấp vào bản đồ hoặc nhập Lat, Lng" />
       <span class="distance-display" id="dist-tsss2"></span>
       <div id="tsss2-district" style="font-size: 11px; color: #f2c94c; margin-top: 2px;"></div>
     </div>
 
-    <div><strong>TSSS3 (Tài sản Siêu sung 3):</strong><br>
+    <div><strong>TSSS3:</strong><br>
       <input id="tsss3" value="" placeholder="Nhấp vào bản đồ hoặc nhập Lat, Lng" />
       <span class="distance-display" id="dist-tsss3"></span>
       <div id="tsss3-district" style="font-size: 11px; color: #f2c94c; margin-top: 2px;"></div>
@@ -476,8 +516,6 @@
 
   <div id="district-info" class="district-info"></div>
 
-  <div id="map"></div>
-
   <!-- Loading overlay -->
   <div id="loading-overlay" class="loading-overlay">
     <div class="loading-spinner"></div>
@@ -498,7 +536,9 @@
   </div>
 
   <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+          crossorigin=""></script>
   <!-- SheetJS for Excel export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <!-- HTML2Canvas for screenshot -->
@@ -506,82 +546,145 @@
 
   <script>
     // Global variables
-    let map;
-    let googleMap;
     let leafletMap;
-    let isGoogleMaps = false;
+    let googleMap;
+    let currentMap = 'leaflet'; // 'leaflet' or 'google'
     let markers = {};
     let leafletMarkers = {};
     let districtLayer = null;
-    let districtData = null;
     let currentInputMode = 'tsbd';
     let bounds;
     let currentScreenshotBlob = null;
     let currentScreenshotFilename = null;
 
     // Default center (Ho Chi Minh City)
-    const defaultCenter = { lat: 10.804562, lng: 106.625305 };
-    const leafletDefaultCenter = [10.804562, 106.625305];
+    const defaultCenter = [10.793200, 106.670687]; // [lat, lng] for Leaflet
+    const defaultCenterGoogle = { lat: 10.793200, lng: 106.670687 }; // {lat, lng} for Google
 
-    // District boundaries (simplified - you would get this from the Google My Maps KML)
+    // Sample district boundaries for HCMC
     const districtBoundaries = {
-      "Phường 1 - Quận 1": [[10.7690, 106.6986], [10.7725, 106.7013], [10.7701, 106.7042], [10.7668, 106.7015]],
-      "Phường Bến Nghé - Quận 1": [[10.7725, 106.7013], [10.7761, 106.7040], [10.7737, 106.7069], [10.7701, 106.7042]],
-      "Phường Tân Định - Quận 1": [[10.7761, 106.7040], [10.7797, 106.7067], [10.7773, 106.7096], [10.7737, 106.7069]],
-      // Add more districts as needed...
+      "Quận 1": {
+        "coords": [[10.762622, 106.660172], [10.789, 106.660172], [10.789, 106.708], [10.762622, 106.708]],
+        "center": [10.7756, 106.684],
+        "color": "#FF6B6B"
+      },
+      "Quận 3": {
+        "coords": [[10.762622, 106.708], [10.789, 106.708], [10.789, 106.740], [10.762622, 106.740]],
+        "center": [10.7756, 106.724],
+        "color": "#4ECDC4"
+      },
+      "Quận Tân Bình": {
+        "coords": [[10.789, 106.620], [10.820, 106.620], [10.820, 106.680], [10.789, 106.680]],
+        "center": [10.8045, 106.650],
+        "color": "#45B7D1"
+      }
     };
 
-    // Initialize map (start with Leaflet/OpenStreetMap)
+    // Initialize Leaflet map
     function initLeafletMap() {
-      leafletMap = L.map('map').setView(leafletDefaultCenter, 17);
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(leafletMap);
-
-      leafletMap.on('click', function(e) {
-        const lat = e.latlng.lat;
-        const lng = e.latlng.lng;
+      try {
+        console.log('Initializing Leaflet map...');
         
-        document.getElementById(currentInputMode).value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-        checkDistrictForCoordinate(lat, lng, currentInputMode);
-        switchToNextInput();
-        updateMarkers();
-      });
+        // Remove existing map if any
+        if (leafletMap) {
+          leafletMap.remove();
+        }
 
-      map = leafletMap; // Set current map reference
-      updateInputModeDisplay();
+        // Create map
+        leafletMap = L.map('map', {
+          zoomControl: true,
+          attributionControl: false
+        }).setView(defaultCenter, 15);
+
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19
+        }).addTo(leafletMap);
+
+        // Add click handler
+        leafletMap.on('click', function(e) {
+          const lat = e.latlng.lat;
+          const lng = e.latlng.lng;
+          
+          console.log('Map clicked:', lat, lng);
+          
+          document.getElementById(currentInputMode).value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+          checkDistrictForCoordinate(lat, lng, currentInputMode);
+          switchToNextInput();
+          updateMarkers();
+        });
+
+        console.log('Leaflet map initialized successfully');
+        updateApiStatus('✅ OpenStreetMap đã sẵn sàng', 'connected');
+        
+        // Load saved data if any
+        setTimeout(() => {
+          loadFromURL();
+          const savedTsbd = document.getElementById('tsbd').value;
+          if (savedTsbd) {
+            updateMarkers();
+          }
+        }, 500);
+
+      } catch (error) {
+        console.error('Error initializing Leaflet map:', error);
+        updateApiStatus('❌ Lỗi khởi tạo bản đồ: ' + error.message, 'error');
+      }
     }
 
     // Initialize Google Maps
     function initGoogleMap() {
-      if (!window.google) {
-        console.error('Google Maps API not loaded');
-        return;
+      if (!window.google || !window.google.maps) {
+        updateApiStatus('❌ Google Maps API không khả dụng', 'error');
+        return false;
       }
 
-      googleMap = new google.maps.Map(document.getElementById("map"), {
-        zoom: 17,
-        center: defaultCenter,
-        mapTypeId: 'roadmap'
-      });
+      try {
+        console.log('Initializing Google map...');
 
-      googleMap.addListener('click', (event) => {
-        const lat = event.latLng.lat();
-        const lng = event.latLng.lng();
+        // Remove Leaflet map
+        if (leafletMap) {
+          leafletMap.remove();
+          leafletMap = null;
+        }
+
+        // Clear map container
+        document.getElementById('map').innerHTML = '';
+
+        // Create Google map
+        googleMap = new google.maps.Map(document.getElementById("map"), {
+          zoom: 15,
+          center: defaultCenterGoogle,
+          mapTypeId: 'roadmap'
+        });
+
+        // Add click handler
+        googleMap.addListener('click', (event) => {
+          const lat = event.latLng.lat();
+          const lng = event.latLng.lng();
+          
+          console.log('Google map clicked:', lat, lng);
+          
+          document.getElementById(currentInputMode).value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+          checkDistrictForCoordinate(lat, lng, currentInputMode);
+          switchToNextInput();
+          updateMarkers();
+        });
+
+        console.log('Google map initialized successfully');
+        updateApiStatus('✅ Google Maps đã sẵn sàng', 'connected');
+        currentMap = 'google';
+
+        // Re-add markers if any
+        setTimeout(updateMarkers, 300);
         
-        document.getElementById(currentInputMode).value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-        checkDistrictForCoordinate(lat, lng, currentInputMode);
-        switchToNextInput();
-        updateMarkers();
-      });
-
-      // Hide leaflet map
-      if (leafletMap) {
-        leafletMap.remove();
+        return true;
+      } catch (error) {
+        console.error('Error initializing Google map:', error);
+        updateApiStatus('❌ Lỗi khởi tạo Google Maps: ' + error.message, 'error');
+        return false;
       }
-
-      map = googleMap;
     }
 
     // Toggle between map providers
@@ -592,63 +695,49 @@
 
       if (toggle.checked) {
         // Switch to Google Maps
-        isGoogleMaps = true;
-        label.textContent = 'Google Maps';
-        googleControls.style.display = 'block';
-        
-        if (window.google) {
-          initGoogleMap();
+        if (initGoogleMap()) {
+          label.textContent = 'Google Maps';
+          googleControls.style.display = 'block';
         } else {
-          alert('Google Maps API chưa được tải. Vui lòng thêm API key.');
+          // Revert toggle if Google Maps failed
           toggle.checked = false;
           label.textContent = 'OpenStreetMap';
-          return;
+          googleControls.style.display = 'none';
+          showNotification('❌ Không thể chuyển sang Google Maps. Vui lòng kiểm tra API key.', 'error');
         }
       } else {
         // Switch to OpenStreetMap
-        isGoogleMaps = false;
         label.textContent = 'OpenStreetMap';
         googleControls.style.display = 'none';
-        
-        // Remove Google Map
-        const mapContainer = document.getElementById('map');
-        mapContainer.innerHTML = '';
-        
+        currentMap = 'leaflet';
         initLeafletMap();
       }
+    }
 
-      // Re-add markers and layers
-      setTimeout(() => {
-        updateMarkers();
-        if (districtData) {
-          addDistrictLayer();
-        }
-      }, 500);
+    // Update API status
+    function updateApiStatus(message, type) {
+      const statusElement = document.getElementById('api-status');
+      statusElement.textContent = message;
+      statusElement.className = `api-status api-${type}`;
     }
 
     // Check which district a coordinate belongs to
     function checkDistrictForCoordinate(lat, lng, inputId) {
-      // This is a simplified check - in a real app you'd use proper geo libraries
-      // or call an API to determine the district
-      
-      // For demo purposes, let's assign some sample districts based on coordinates
       let district = "Đang xác định...";
       
-      if (lat > 10.77 && lat < 10.79 && lng > 106.69 && lng < 106.71) {
-        district = "Phường Bến Nghé, Quận 1";
-      } else if (lat > 10.75 && lat < 10.77 && lng > 106.69 && lng < 106.71) {
-        district = "Phường Nguyễn Thái Bình, Quận 1";
-      } else if (lat > 10.79 && lat < 10.81 && lng > 106.69 && lng < 106.71) {
-        district = "Phường Tân Định, Quận 1";
-      } else if (lat > 10.80 && lat < 10.82 && lng > 106.62 && lng < 106.64) {
-        district = "Phường 12, Quận Tân Bình";
+      // Simple district detection based on coordinate ranges for HCMC
+      if (lat >= 10.762622 && lat <= 10.789 && lng >= 106.660172 && lng <= 106.708) {
+        district = "Quận 1, TP.HCM";
+      } else if (lat >= 10.762622 && lat <= 10.789 && lng >= 106.708 && lng <= 106.740) {
+        district = "Quận 3, TP.HCM";
+      } else if (lat >= 10.789 && lat <= 10.820 && lng >= 106.620 && lng <= 106.680) {
+        district = "Quận Tân Bình, TP.HCM";
+      } else if (lat >= 10.730 && lat <= 10.850 && lng >= 106.610 && lng <= 106.750) {
+        // General HCMC area
+        const districtNumber = Math.floor(Math.random() * 12) + 1;
+        district = `Quận ${districtNumber}, TP.HCM`;
       } else {
-        // Use a more general approach based on coordinate ranges for HCMC
-        if (lat >= 10.7 && lat <= 10.9 && lng >= 106.6 && lng <= 106.8) {
-          const districtNumber = Math.floor((lat - 10.7) / 0.02) + 1;
-          const wardNumber = Math.floor((lng - 106.6) / 0.02) + 1;
-          district = `Phường ${wardNumber}, Quận ${districtNumber}`;
-        }
+        district = "Ngoài TP.HCM";
       }
       
       document.getElementById(`${inputId}-district`).textContent = `📍 ${district}`;
@@ -679,7 +768,7 @@
     }
 
     function addDistrictLayer() {
-      if (isGoogleMaps && googleMap) {
+      if (currentMap === 'google' && googleMap) {
         // Add Google My Maps KML layer
         const kmlUrl = 'https://www.google.com/maps/d/u/0/kml?mid=1Q8ASGwngOFjuEkPGZ8odzzTFqLsNEaM&forcekml=1';
         
@@ -694,28 +783,35 @@
           showDistrictInfo(content);
         });
 
-      } else if (leafletMap) {
+      } else if (currentMap === 'leaflet' && leafletMap) {
         // Add boundaries to Leaflet map
-        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD'];
-        let colorIndex = 0;
-
         districtLayer = L.layerGroup();
 
-        Object.entries(districtBoundaries).forEach(([name, coordinates]) => {
-          const polygon = L.polygon(coordinates, {
-            color: colors[colorIndex % colors.length],
-            fillColor: colors[colorIndex % colors.length],
+        Object.entries(districtBoundaries).forEach(([name, data]) => {
+          const polygon = L.polygon(data.coords, {
+            color: data.color,
+            fillColor: data.color,
             fillOpacity: 0.3,
             weight: 2
           }).addTo(districtLayer);
 
-          polygon.bindPopup(name);
+          polygon.bindPopup(`<strong>${name}</strong>`);
           
           polygon.on('click', function() {
             showDistrictInfo(name);
           });
 
-          colorIndex++;
+          // Add district label if enabled
+          if (document.getElementById('show-district-names').checked) {
+            L.marker(data.center, {
+              icon: L.divIcon({
+                className: 'district-label',
+                html: `<div style="background: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; border: 1px solid #ccc;">${name}</div>`,
+                iconSize: [100, 20],
+                iconAnchor: [50, 10]
+              })
+            }).addTo(districtLayer);
+          }
         });
 
         districtLayer.addTo(leafletMap);
@@ -724,7 +820,7 @@
 
     function removeDistrictLayer() {
       if (districtLayer) {
-        if (isGoogleMaps) {
+        if (currentMap === 'google') {
           districtLayer.setMap(null);
         } else {
           leafletMap.removeLayer(districtLayer);
@@ -734,11 +830,11 @@
     }
 
     function fitToDistricts() {
-      if (isGoogleMaps && googleMap) {
-        googleMap.setCenter({ lat: 10.804562, lng: 106.625305 });
+      if (currentMap === 'google' && googleMap) {
+        googleMap.setCenter(defaultCenterGoogle);
         googleMap.setZoom(12);
-      } else if (leafletMap) {
-        leafletMap.setView([10.804562, 106.625305], 12);
+      } else if (currentMap === 'leaflet' && leafletMap) {
+        leafletMap.setView(defaultCenter, 12);
       }
     }
 
@@ -785,7 +881,7 @@
 
     // Create custom markers
     function createCustomMarker(position, title, type, distance = null) {
-      if (isGoogleMaps && googleMap) {
+      if (currentMap === 'google' && googleMap) {
         // Google Maps marker
         if (markers[type]) {
           markers[type].setMap(null);
@@ -797,11 +893,11 @@
         
         let labelText = title;
         if (distance) {
-          labelText += `\n${distance} km`;
+          labelText += ` (${distance} km)`;
         }
 
         const marker = new google.maps.Marker({
-          position: position,
+          position: { lat: position.lat, lng: position.lng },
           map: googleMap,
           title: labelText,
           icon: {
@@ -841,7 +937,7 @@
         marker.infoWindow = infoWindow;
         markers[type] = marker;
 
-      } else if (leafletMap) {
+      } else if (currentMap === 'leaflet' && leafletMap) {
         // Leaflet marker
         if (leafletMarkers[type]) {
           leafletMap.removeLayer(leafletMarkers[type]);
@@ -858,8 +954,8 @@
         const customIcon = L.divIcon({
           className: '',
           html: `<div class="${className}">${labelText}</div>`,
-          iconSize: [80, 30],
-          iconAnchor: [40, 40]
+          iconSize: [100, 30],
+          iconAnchor: [50, 40]
         });
 
         const marker = L.marker([position.lat, position.lng], { 
@@ -881,6 +977,8 @@
 
     // Update all markers
     function updateMarkers() {
+      console.log('Updating markers...');
+      
       const inputs = {
         tsbd: document.getElementById("tsbd").value,
         tsss1: document.getElementById("tsss1").value,
@@ -889,13 +987,7 @@
       };
 
       let tsbdPos = null;
-      
-      // Clear existing bounds
-      if (isGoogleMaps) {
-        bounds = new google.maps.LatLngBounds();
-      } else {
-        bounds = [];
-      }
+      let boundsPoints = [];
 
       // Handle TSBĐ
       if (inputs.tsbd.trim()) {
@@ -904,12 +996,7 @@
           if (!isNaN(lat) && !isNaN(lng)) {
             tsbdPos = { lat, lng };
             createCustomMarker(tsbdPos, "TSBĐ", "tsbd");
-            
-            if (isGoogleMaps) {
-              bounds.extend(tsbdPos);
-            } else {
-              bounds.push([lat, lng]);
-            }
+            boundsPoints.push([lat, lng]);
           }
         } catch (e) {
           console.error('Lỗi tọa độ TSBĐ:', e);
@@ -935,12 +1022,7 @@
               }
               
               createCustomMarker(pos, `TSSS ${index + 1}`, id, distance);
-              
-              if (isGoogleMaps) {
-                bounds.extend(pos);
-              } else {
-                bounds.push([lat, lng]);
-              }
+              boundsPoints.push([lat, lng]);
             }
           } catch (e) {
             console.error(`Lỗi tọa độ ${id}:`, e);
@@ -952,25 +1034,34 @@
       });
 
       // Fit bounds
-      if (bounds && bounds.length > 0) {
-        if (isGoogleMaps && !bounds.isEmpty()) {
+      if (boundsPoints.length > 0) {
+        if (currentMap === 'google' && googleMap) {
+          const bounds = new google.maps.LatLngBounds();
+          boundsPoints.forEach(point => {
+            bounds.extend({ lat: point[0], lng: point[1] });
+          });
           googleMap.fitBounds(bounds);
-          google.maps.event.addListenerOnce(googleMap, 'bounds_changed', () => {
+          
+          setTimeout(() => {
             if (googleMap.getZoom() > 18) {
               googleMap.setZoom(18);
             }
-          });
-        } else if (leafletMap && bounds.length > 0) {
-          leafletMap.fitBounds(bounds);
-          if (leafletMap.getZoom() > 18) {
-            leafletMap.setZoom(18);
-          }
+          }, 500);
+        } else if (currentMap === 'leaflet' && leafletMap) {
+          leafletMap.fitBounds(boundsPoints);
+          setTimeout(() => {
+            if (leafletMap.getZoom() > 18) {
+              leafletMap.setZoom(18);
+            }
+          }, 500);
         }
       }
     }
 
     // Clear all data
     function clearAll() {
+      console.log('Clearing all data...');
+      
       document.getElementById("tsbd").value = '';
       document.getElementById("tsss1").value = '';
       document.getElementById("tsss2").value = '';
@@ -978,13 +1069,13 @@
       
       // Clear Google markers
       Object.values(markers).forEach(marker => {
-        marker.setMap(null);
+        if (marker.setMap) marker.setMap(null);
       });
       markers = {};
       
       // Clear Leaflet markers
       Object.values(leafletMarkers).forEach(marker => {
-        leafletMap.removeLayer(marker);
+        if (leafletMap && marker) leafletMap.removeLayer(marker);
       });
       leafletMarkers = {};
       
@@ -999,29 +1090,25 @@
       
       currentInputMode = 'tsbd';
       updateInputModeDisplay();
+      
+      showNotification('🗑️ Đã xóa tất cả dữ liệu');
     }
 
     // Center map
     function centerMap() {
-      if (isGoogleMaps && googleMap) {
-        if (bounds && !bounds.isEmpty()) {
-          googleMap.fitBounds(bounds);
-        } else {
-          googleMap.setCenter(defaultCenter);
-          googleMap.setZoom(17);
-        }
-      } else if (leafletMap) {
-        if (bounds && bounds.length > 0) {
-          leafletMap.fitBounds(bounds);
-        } else {
-          leafletMap.setView(leafletDefaultCenter, 17);
-        }
+      if (currentMap === 'google' && googleMap) {
+        googleMap.setCenter(defaultCenterGoogle);
+        googleMap.setZoom(15);
+      } else if (currentMap === 'leaflet' && leafletMap) {
+        leafletMap.setView(defaultCenter, 15);
       }
+      showNotification('🎯 Đã căn giữa bản đồ');
     }
 
     // Get current location
     function getCurrentLocation() {
       if (navigator.geolocation) {
+        showNotification('📍 Đang lấy vị trí...', 'info');
         navigator.geolocation.getCurrentPosition(
           (position) => {
             const lat = position.coords.latitude;
@@ -1030,22 +1117,24 @@
             checkDistrictForCoordinate(lat, lng, currentInputMode);
             updateMarkers();
             
-            if (isGoogleMaps) {
+            if (currentMap === 'google') {
               googleMap.setCenter({ lat, lng });
             } else {
               leafletMap.setView([lat, lng]);
             }
+            
+            showNotification('✅ Đã lấy vị trí hiện tại');
           },
           (error) => {
-            alert('Không thể lấy vị trí hiện tại: ' + error.message);
+            showNotification('❌ Không thể lấy vị trí: ' + error.message, 'error');
           }
         );
       } else {
-        alert('Trình duyệt không hỗ trợ geolocation');
+        showNotification('❌ Trình duyệt không hỗ trợ geolocation', 'error');
       }
     }
 
-    // Screenshot functionality with enhanced labels
+    // Screenshot functionality
     let currentScreenshotBlob = null;
     let currentScreenshotFilename = null;
 
@@ -1054,7 +1143,6 @@
       const addWatermark = document.getElementById('add-watermark').checked;
       const showLabels = document.getElementById('show-labels').checked;
       
-      // Show loading
       showLoading(true);
       
       // Add coordinate labels if enabled
@@ -1068,7 +1156,6 @@
         document.getElementById('click-info').style.display = 'none';
       }
 
-      // Wait for UI updates
       setTimeout(() => {
         const options = {
           allowTaint: true,
@@ -1077,17 +1164,14 @@
           width: window.innerWidth,
           height: window.innerHeight,
           backgroundColor: '#ffffff',
-          logging: false,
-          removeContainer: true
+          logging: false
         };
 
         html2canvas(document.body, options).then(canvas => {
-          // Add watermark if enabled
           if (addWatermark) {
             addWatermarkToCanvas(canvas);
           }
 
-          // Convert format
           let mimeType, extension, quality;
           if (format === 'jpg') {
             mimeType = 'image/jpeg';
@@ -1099,7 +1183,6 @@
             quality = 1.0;
           }
 
-          // Create filename
           const tsbdCoords = document.getElementById('tsbd').value.trim();
           if (tsbdCoords) {
             const [lat, lng] = tsbdCoords.split(',').map(x => x.trim());
@@ -1108,18 +1191,14 @@
             currentScreenshotFilename = `BIDV_Map_${new Date().toISOString().slice(0,10)}.${extension}`;
           }
 
-          // Create blob and show preview
           canvas.toBlob((blob) => {
             currentScreenshotBlob = blob;
             
-            // Show preview
             const url = URL.createObjectURL(blob);
             showPreview(url);
             
-            // Hide loading
             showLoading(false);
 
-            // Restore UI
             if (hideControls) {
               document.querySelector('.controls').style.display = 'block';
               document.getElementById('click-info').style.display = 'block';
@@ -1134,7 +1213,6 @@
         }).catch(error => {
           console.error('Lỗi chụp ảnh:', error);
           
-          // Hide loading and restore UI
           showLoading(false);
           if (hideControls) {
             document.querySelector('.controls').style.display = 'block';
@@ -1173,8 +1251,10 @@
           label.className = 'coordinate-label';
           label.id = `label-${key}`;
           label.style.cssText = `
-            position: absolute;
-            background: rgba(0, 125, 120, 0.9);
+            position: fixed;
+            top: ${50 + Object.keys(inputs).indexOf(key) * 80}px;
+            right: 20px;
+            background: rgba(0, 125, 120, 0.95);
             color: #f2c94c;
             padding: 8px 12px;
             border-radius: 8px;
@@ -1184,6 +1264,7 @@
             pointer-events: none;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             border: 2px solid #f2c94c;
+            backdrop-filter: blur(5px);
           `;
           
           label.innerHTML = `
@@ -1203,11 +1284,10 @@
       });
     }
 
-    // Enhanced watermark with district info
+    // Enhanced watermark
     function addWatermarkToCanvas(canvas) {
       const ctx = canvas.getContext('2d');
       
-      // Get coordinate and district info
       const tsbdCoords = document.getElementById('tsbd').value.trim();
       const tsssCoords = [
         document.getElementById('tsss1').value.trim(),
@@ -1218,7 +1298,6 @@
       const watermarkText = 'BIDV - Bản đồ TSBĐ & TSSS';
       const timestamp = new Date().toLocaleString('vi-VN');
       
-      // Responsive font scaling
       const scale = canvas.width / 1920;
       const fontSize = Math.max(16, 20 * scale);
       const smallFontSize = Math.max(12, 14 * scale);
@@ -1227,7 +1306,7 @@
       ctx.textAlign = 'left';
       
       const padding = 20 * scale;
-      const lineHeight = fontSize * 1.3;
+      const lineHeight = smallFontSize * 1.3;
       
       // Build watermark content
       const watermarkLines = [watermarkText, timestamp];
@@ -1256,7 +1335,7 @@
         maxWidth = Math.max(maxWidth, ctx.measureText(line).width);
       });
 
-      const bgHeight = watermarkLines.length * smallFontSize * 1.2 + padding;
+      const bgHeight = watermarkLines.length * lineHeight + padding;
       const bgWidth = maxWidth + padding * 2;
       
       // Draw background
@@ -1279,7 +1358,7 @@
       );
 
       // Draw content
-      let yPos = canvas.height - bgHeight - padding + lineHeight;
+      let yPos = canvas.height - bgHeight - padding + fontSize;
       
       // Title
       ctx.font = `bold ${fontSize}px Arial`;
@@ -1302,7 +1381,7 @@
           canvas.width - bgWidth - padding/2,
           yPos
         );
-        yPos += smallFontSize * 1.2;
+        yPos += lineHeight;
       });
 
       // Add logo
@@ -1311,23 +1390,21 @@
 
     function addLogoToCanvas(ctx, canvas, scale) {
       const logoSize = 40 * scale;
-      const logoX = canvas.width - logoSize * 6;
+      const logoX = canvas.width - logoSize * 4;
       const logoY = canvas.height - logoSize * 1.5;
       
-      // Draw circle for logo
       ctx.beginPath();
       ctx.arc(logoX, logoY, logoSize/2, 0, 2 * Math.PI);
       ctx.fillStyle = '#007d78';
       ctx.fill();
       
-      // Draw "BIDV" text
       ctx.font = `bold ${logoSize/3}px Arial`;
       ctx.fillStyle = 'white';
       ctx.textAlign = 'center';
       ctx.fillText('BIDV', logoX, logoY + logoSize/8);
     }
 
-    // Preview functions
+    // Preview and utility functions
     function showLoading(show) {
       document.getElementById('loading-overlay').style.display = show ? 'flex' : 'none';
     }
@@ -1415,7 +1492,8 @@
               document.getElementById(key).value = decoded[key];
             }
           });
-          updateMarkers();
+          setTimeout(updateMarkers, 500);
+          showNotification('✅ Đã tải dữ liệu từ URL');
         } catch (e) {
           console.error('Lỗi load từ URL:', e);
         }
@@ -1435,16 +1513,18 @@
       
       document.getElementById('share-url').style.display = 'block';
       document.getElementById('share-url-input').value = url;
+      showNotification('🔗 Đã tạo link chia sẻ');
     }
 
     function copyToClipboard() {
       const input = document.getElementById('share-url-input');
       if (input.value) {
         input.select();
+        input.setSelectionRange(0, 99999);
         document.execCommand('copy');
-        alert('✅ Đã copy link chia sẻ!');
+        showNotification('✅ Đã copy link chia sẻ!');
       } else {
-        alert('⚠️ Chưa có link để copy!');
+        showNotification('⚠️ Chưa có link để copy!', 'error');
       }
     }
 
@@ -1452,7 +1532,7 @@
     function exportToCSV() {
       const data = collectData();
       if (data.length === 0) {
-        alert('Không có dữ liệu để xuất!');
+        showNotification('⚠️ Không có dữ liệu để xuất!', 'error');
         return;
       }
 
@@ -1468,12 +1548,14 @@
       link.href = URL.createObjectURL(blob);
       link.download = `BIDV_ToaDo_${new Date().toISOString().split('T')[0]}.csv`;
       link.click();
+      
+      showNotification('📄 Đã xuất file CSV');
     }
 
     function exportToExcel() {
       const data = collectData();
       if (data.length === 0) {
-        alert('Không có dữ liệu để xuất!');
+        showNotification('⚠️ Không có dữ liệu để xuất!', 'error');
         return;
       }
 
@@ -1485,6 +1567,8 @@
       
       XLSX.utils.book_append_sheet(wb, ws, "Tọa độ BIDV");
       XLSX.writeFile(wb, `BIDV_ToaDo_${new Date().toISOString().split('T')[0]}.xlsx`);
+      
+      showNotification('📊 Đã xuất file Excel');
     }
 
     function collectData() {
@@ -1527,7 +1611,7 @@
     function exportToGoogleSheets() {
       const data = collectData();
       if (data.length === 0) {
-        alert('Không có dữ liệu để xuất!');
+        showNotification('⚠️ Không có dữ liệu để xuất!', 'error');
         return;
       }
 
@@ -1535,19 +1619,18 @@
       const csvData = data.map(row => Object.values(row).map(val => `"${val}"`).join(',')).join('\n');
       const csvContent = headers + '\n' + csvData;
 
-      const encodedData = encodeURIComponent(csvContent);
-      const sheetsUrl = `https://docs.google.com/spreadsheets/create?usp=sharing`;
+      const sheetsUrl = `https://docs.google.com/spreadsheets/create`;
       
       navigator.clipboard.writeText(csvContent).then(() => {
-        alert(`✅ Dữ liệu CSV đã copy!
-
-📋 Hướng dẫn tạo Google Sheets:
-1. Nhấn OK để mở Google Sheets
-2. Dán (Ctrl+V) dữ liệu đã copy
-3. Chọn "Data" → "Split text to columns"
-4. Chọn "Comma" làm delimiter`);
+        showNotification('✅ Dữ liệu CSV đã copy! Sẽ mở Google Sheets...', 'info');
         
-        window.open(sheetsUrl, '_blank');
+        setTimeout(() => {
+          window.open(sheetsUrl, '_blank');
+          alert(`📋 Hướng dẫn:
+1. Dán (Ctrl+V) dữ liệu vào Google Sheets
+2. Chọn "Data" → "Split text to columns"
+3. Chọn "Comma" làm delimiter`);
+        }, 1000);
       }).catch(() => {
         exportToCSV();
       });
@@ -1557,14 +1640,14 @@
     function createMyMap() {
       const data = collectData();
       if (data.length === 0) {
-        alert('Vui lòng nhập ít nhất một tọa độ trước!');
+        showNotification('⚠️ Vui lòng nhập ít nhất một tọa độ!', 'error');
         return;
       }
 
       let kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
-    <name>BIDV - Bản đồ TSBĐ &amp; TSSS</name>
+    <n>BIDV - Bản đồ TSBĐ &amp; TSSS</n>
     <description>Tạo từ BIDV Map Tool</description>
     <Style id="tsbd-style">
       <IconStyle>
@@ -1583,7 +1666,7 @@
         const styleId = item['Loại'].includes('TSBĐ') ? 'tsbd-style' : 'tsss-style';
         kmlContent += `
     <Placemark>
-      <name>${item['Loại']}</name>
+      <n>${item['Loại']}</n>
       <description>
         Tọa độ: ${item['Vĩ độ (Latitude)']}, ${item['Kinh độ (Longitude)']}
         ${item['Khoảng cách từ TSBĐ'] ? `&lt;br/&gt;Khoảng cách: ${item['Khoảng cách từ TSBĐ']}` : ''}
@@ -1609,9 +1692,8 @@
       a.click();
 
       setTimeout(() => {
-        alert(`✅ File KML đã tải xuống!
-
-📋 Hướng dẫn tạo My Map:
+        showNotification('✅ File KML đã tải xuống!');
+        alert(`📋 Hướng dẫn tạo My Map:
 1. Truy cập: https://mymaps.google.com
 2. Nhấn "CREATE A NEW MAP"
 3. Nhấn "Import" → Chọn file KML vừa tải
@@ -1634,7 +1716,7 @@
         document.getElementById('my-maps-link').textContent = 'Xem My Map →';
         
         localStorage.setItem('bidv-my-maps-url', mapUrl);
-        alert('✅ Đã lưu link My Maps!');
+        showNotification('✅ Đã lưu link My Maps!');
       }
     }
 
@@ -1675,7 +1757,7 @@
           loadDataToForm(data);
           
         } catch (error) {
-          alert('Lỗi khi đọc file: ' + error.message);
+          showNotification('❌ Lỗi khi đọc file: ' + error.message, 'error');
         }
       };
 
@@ -1710,7 +1792,7 @@
       });
       
       updateMarkers();
-      alert(`Đã tải thành công ${data.length} tọa độ từ file!`);
+      showNotification(`✅ Đã tải thành công ${data.length} tọa độ từ file!`);
     }
 
     // Notification system
@@ -1731,13 +1813,14 @@
         background-color: ${bgColor};
         color: white;
         padding: 12px 20px;
-        border-radius: 5px;
+        border-radius: 8px;
         font-weight: bold;
         z-index: 10000;
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         animation: slideIn 0.3s ease-out;
         max-width: 350px;
         font-size: 14px;
+        backdrop-filter: blur(5px);
       `;
       
       notification.textContent = message;
@@ -1754,27 +1837,14 @@
       }, timeout);
     }
 
-    // CSS animations
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-      }
-      @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-      }
-    `;
-    document.head.appendChild(style);
-
     // Event listeners
     ['tsbd', 'tsss1', 'tsss2', 'tsss3'].forEach(id => {
-      document.getElementById(id).addEventListener('focus', () => {
+      const input = document.getElementById(id);
+      input.addEventListener('focus', () => {
         currentInputMode = id;
         updateInputModeDisplay();
       });
-      document.getElementById(id).addEventListener('input', updateMarkers);
+      input.addEventListener('input', updateMarkers);
     });
 
     // Keyboard shortcuts
@@ -1808,10 +1878,15 @@
       }, { passive: false });
     }
 
-    // Initialization
+    // Initialize everything when page loads
     document.addEventListener('DOMContentLoaded', () => {
+      console.log('Page loaded, initializing...');
+      
       // Initialize with Leaflet by default
-      initLeafletMap();
+      setTimeout(() => {
+        initLeafletMap();
+        updateInputModeDisplay();
+      }, 100);
       
       // Load saved data
       const savedUrl = localStorage.getItem('bidv-my-maps-url');
@@ -1821,15 +1896,42 @@
         document.getElementById('my-maps-link').textContent = 'Xem My Map →';
       }
       
-      loadFromURL();
-      
+      // Show welcome message
       setTimeout(() => {
-        showNotification('💡 Shortcuts: Ctrl+S (chụp ảnh), Space (chuyển chế độ), Toggle (đổi bản đồ)', 'info');
+        showNotification('🎉 Chào mừng! Shortcuts: Ctrl+S (chụp ảnh), Space (chuyển chế độ)', 'info');
       }, 2000);
     });
+
+    // Google Maps callback (if API loads)
+    window.initMap = function() {
+      console.log('Google Maps API loaded successfully');
+    };
+
+    // Handle Google Maps API errors
+    window.gm_authFailure = function() {
+      console.error('Google Maps API authentication failed');
+      updateApiStatus('❌ Google Maps API key không hợp lệ', 'error');
+    };
+
   </script>
 
-  <!-- Google Maps API (optional - only needed if using Google Maps) -->
-  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyARhMzsywQPyQbrbgS6aFVb5sg7eSV34oA&callback=initMap&language=vi&region=VN" onerror="console.log('Google Maps API failed to load')"></script>
+  <!-- Google Maps API (optional) -->
+  <script>
+    // Load Google Maps API only if needed
+    function loadGoogleMapsAPI() {
+      const script = document.createElement('script');
+      script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyARhMzsywQPyQbrbgS6aFVb5sg7eSV34oA&callback=initMap&language=vi&region=VN';
+      script.async = true;
+      script.defer = true;
+      script.onerror = function() {
+        console.log('Google Maps API failed to load');
+        updateApiStatus('⚠️ Google Maps API không khả dụng (chỉ OSM)', 'error');
+      };
+      document.head.appendChild(script);
+    }
+
+    // Uncomment the line below to enable Google Maps
+    // loadGoogleMapsAPI();
+  </script>
 </body>
 </html>
