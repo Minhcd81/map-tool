@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bản đồ TSBĐ & TSSS(Enhanced)</title>
+  <title>Bản đồ TSBĐ & TSSS - BIDV (Enhanced)</title>
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
@@ -394,24 +394,24 @@
       • Bật layer phường để xem vị trí hành chính
     </div>
 
-    <div><strong>TSBĐ:</strong><br>
+    <div><strong>TSBĐ (Trụ sở Bảo đảm):</strong><br>
       <input id="tsbd" value="" placeholder="Nhấp vào bản đồ hoặc nhập Lat, Lng" />
       <div id="tsbd-district" style="font-size: 11px; color: #f2c94c; margin-top: 2px;"></div>
     </div>
 
-    <div><strong>TSSS1:</strong><br>
+    <div><strong>TSSS1 (Tài sản Siêu sung 1):</strong><br>
       <input id="tsss1" value="" placeholder="Nhấp vào bản đồ hoặc nhập Lat, Lng" />
       <span class="distance-display" id="dist-tsss1"></span>
       <div id="tsss1-district" style="font-size: 11px; color: #f2c94c; margin-top: 2px;"></div>
     </div>
 
-    <div><strong>TSSS2:</strong><br>
+    <div><strong>TSSS2 (Tài sản Siêu sung 2):</strong><br>
       <input id="tsss2" value="" placeholder="Nhấp vào bản đồ hoặc nhập Lat, Lng" />
       <span class="distance-display" id="dist-tsss2"></span>
       <div id="tsss2-district" style="font-size: 11px; color: #f2c94c; margin-top: 2px;"></div>
     </div>
 
-    <div><strong>TSSS3:</strong><br>
+    <div><strong>TSSS3 (Tài sản Siêu sung 3):</strong><br>
       <input id="tsss3" value="" placeholder="Nhấp vào bản đồ hoặc nhập Lat, Lng" />
       <span class="distance-display" id="dist-tsss3"></span>
       <div id="tsss3-district" style="font-size: 11px; color: #f2c94c; margin-top: 2px;"></div>
@@ -560,6 +560,588 @@
     // Default center (Ho Chi Minh City)
     const defaultCenter = [10.793200, 106.670687]; // [lat, lng] for Leaflet
     const defaultCenterGoogle = { lat: 10.793200, lng: 106.670687 }; // {lat, lng} for Google
+
+    // Function declarations (hoisted) - make sure these are available immediately
+    function toggleMapProvider() {
+      const toggle = document.getElementById('map-provider-toggle');
+      const label = document.getElementById('map-provider-label');
+      const googleControls = document.getElementById('google-map-type');
+
+      if (!toggle || !label || !googleControls) {
+        console.error('Required elements not found');
+        return;
+      }
+
+      if (toggle.checked) {
+        // Switch to Google Maps
+        if (window.google && initGoogleMap()) {
+          label.textContent = 'Google Maps';
+          googleControls.style.display = 'block';
+          showNotification('✅ Đã chuyển sang Google Maps');
+        } else {
+          // Revert toggle if Google Maps failed
+          toggle.checked = false;
+          label.textContent = 'OpenStreetMap';
+          googleControls.style.display = 'none';
+          showNotification('❌ Google Maps không khả dụng. Sử dụng OpenStreetMap.', 'error');
+        }
+      } else {
+        // Switch to OpenStreetMap
+        label.textContent = 'OpenStreetMap';
+        googleControls.style.display = 'none';
+        currentMap = 'leaflet';
+        initLeafletMap();
+        showNotification('✅ Đã chuyển sang OpenStreetMap');
+      }
+    }
+
+    function changeMapType() {
+      if (googleMap && currentMap === 'google') {
+        const mapType = document.getElementById('mapType').value;
+        googleMap.setMapTypeId(mapType);
+      }
+    }
+
+    function toggleDistrictLayer() {
+      if (districtLayer) {
+        removeDistrictLayer();
+        showNotification('🏘️ Đã tắt layer phường');
+      } else {
+        addDistrictLayer();
+        showNotification('🏘️ Đã bật layer phường');
+      }
+    }
+
+    function fitToDistricts() {
+      if (currentMap === 'google' && googleMap) {
+        googleMap.setCenter(defaultCenterGoogle);
+        googleMap.setZoom(12);
+      } else if (currentMap === 'leaflet' && leafletMap) {
+        leafletMap.setView(defaultCenter, 12);
+      }
+    }
+
+    function updateMarkers() {
+      console.log('Updating markers...');
+      
+      const inputs = {
+        tsbd: document.getElementById("tsbd").value,
+        tsss1: document.getElementById("tsss1").value,
+        tsss2: document.getElementById("tsss2").value,
+        tsss3: document.getElementById("tsss3").value
+      };
+
+      let tsbdPos = null;
+      let boundsPoints = [];
+
+      // Handle TSBĐ
+      if (inputs.tsbd.trim()) {
+        try {
+          const [lat, lng] = inputs.tsbd.split(',').map(x => parseFloat(x.trim()));
+          if (!isNaN(lat) && !isNaN(lng)) {
+            tsbdPos = { lat, lng };
+            createCustomMarker(tsbdPos, "TSBĐ", "tsbd");
+            boundsPoints.push([lat, lng]);
+          }
+        } catch (e) {
+          console.error('Lỗi tọa độ TSBĐ:', e);
+        }
+      }
+
+      // Handle TSSS
+      ['tsss1', 'tsss2', 'tsss3'].forEach((id, index) => {
+        const distElement = document.getElementById(`dist-${id}`);
+        
+        if (inputs[id].trim()) {
+          try {
+            const [lat, lng] = inputs[id].split(',').map(x => parseFloat(x.trim()));
+            if (!isNaN(lat) && !isNaN(lng)) {
+              const pos = { lat, lng };
+              let distance = null;
+              
+              if (tsbdPos) {
+                distance = calculateDistance(tsbdPos.lat, tsbdPos.lng, lat, lng);
+                distElement.textContent = `📏 ${distance} km`;
+              } else {
+                distElement.textContent = '';
+              }
+              
+              createCustomMarker(pos, `TSSS ${index + 1}`, id, distance);
+              boundsPoints.push([lat, lng]);
+            }
+          } catch (e) {
+            console.error(`Lỗi tọa độ ${id}:`, e);
+            distElement.textContent = '';
+          }
+        } else {
+          distElement.textContent = '';
+        }
+      });
+
+      // Fit bounds
+      if (boundsPoints.length > 0) {
+        if (currentMap === 'google' && googleMap) {
+          const bounds = new google.maps.LatLngBounds();
+          boundsPoints.forEach(point => {
+            bounds.extend({ lat: point[0], lng: point[1] });
+          });
+          googleMap.fitBounds(bounds);
+          
+          setTimeout(() => {
+            if (googleMap.getZoom() > 18) {
+              googleMap.setZoom(18);
+            }
+          }, 500);
+        } else if (currentMap === 'leaflet' && leafletMap) {
+          leafletMap.fitBounds(boundsPoints);
+          setTimeout(() => {
+            if (leafletMap.getZoom() > 18) {
+              leafletMap.setZoom(18);
+            }
+          }, 500);
+        }
+      }
+    }
+
+    function clearAll() {
+      console.log('Clearing all data...');
+      
+      document.getElementById("tsbd").value = '';
+      document.getElementById("tsss1").value = '';
+      document.getElementById("tsss2").value = '';
+      document.getElementById("tsss3").value = '';
+      
+      // Clear Google markers
+      Object.values(markers).forEach(marker => {
+        if (marker.setMap) marker.setMap(null);
+      });
+      markers = {};
+      
+      // Clear Leaflet markers
+      Object.values(leafletMarkers).forEach(marker => {
+        if (leafletMap && marker) leafletMap.removeLayer(marker);
+      });
+      leafletMarkers = {};
+      
+      // Clear district info
+      ['tsbd', 'tsss1', 'tsss2', 'tsss3'].forEach(id => {
+        document.getElementById(`${id}-district`).textContent = '';
+      });
+      
+      ['dist-tsss1', 'dist-tsss2', 'dist-tsss3'].forEach(id => {
+        document.getElementById(id).textContent = '';
+      });
+      
+      currentInputMode = 'tsbd';
+      updateInputModeDisplay();
+      
+      showNotification('🗑️ Đã xóa tất cả dữ liệu');
+    }
+
+    function centerMap() {
+      if (currentMap === 'google' && googleMap) {
+        googleMap.setCenter(defaultCenterGoogle);
+        googleMap.setZoom(15);
+      } else if (currentMap === 'leaflet' && leafletMap) {
+        leafletMap.setView(defaultCenter, 15);
+      }
+      showNotification('🎯 Đã căn giữa bản đồ');
+    }
+
+    function getCurrentLocation() {
+      if (navigator.geolocation) {
+        showNotification('📍 Đang lấy vị trí...', 'info');
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            document.getElementById(currentInputMode).value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            checkDistrictForCoordinate(lat, lng, currentInputMode);
+            updateMarkers();
+            
+            if (currentMap === 'google') {
+              googleMap.setCenter({ lat, lng });
+            } else {
+              leafletMap.setView([lat, lng]);
+            }
+            
+            showNotification('✅ Đã lấy vị trí hiện tại');
+          },
+          (error) => {
+            showNotification('❌ Không thể lấy vị trí: ' + error.message, 'error');
+          }
+        );
+      } else {
+        showNotification('❌ Trình duyệt không hỗ trợ geolocation', 'error');
+      }
+    }
+
+    function takeScreenshot(format = 'png') {
+      const hideControls = document.getElementById('hide-controls').checked;
+      const addWatermark = document.getElementById('add-watermark').checked;
+      const showLabels = document.getElementById('show-labels').checked;
+      
+      showLoading(true);
+      
+      // Add coordinate labels if enabled
+      if (showLabels) {
+        addCoordinateLabels();
+      }
+      
+      // Hide controls if selected
+      if (hideControls) {
+        document.querySelector('.controls').style.display = 'none';
+        document.getElementById('click-info').style.display = 'none';
+      }
+
+      setTimeout(() => {
+        const options = {
+          allowTaint: true,
+          useCORS: true,
+          scale: format === 'hd' ? 2 : 1,
+          width: window.innerWidth,
+          height: window.innerHeight,
+          backgroundColor: '#ffffff',
+          logging: false
+        };
+
+        html2canvas(document.body, options).then(canvas => {
+          if (addWatermark) {
+            addWatermarkToCanvas(canvas);
+          }
+
+          let mimeType, extension, quality;
+          if (format === 'jpg') {
+            mimeType = 'image/jpeg';
+            extension = 'jpg';
+            quality = 0.85;
+          } else {
+            mimeType = 'image/png';
+            extension = 'png';
+            quality = 1.0;
+          }
+
+          const tsbdCoords = document.getElementById('tsbd').value.trim();
+          if (tsbdCoords) {
+            const [lat, lng] = tsbdCoords.split(',').map(x => x.trim());
+            currentScreenshotFilename = `BIDV_TSBD_${lat}_${lng}_${new Date().toISOString().slice(0,10)}.${extension}`;
+          } else {
+            currentScreenshotFilename = `BIDV_Map_${new Date().toISOString().slice(0,10)}.${extension}`;
+          }
+
+          canvas.toBlob((blob) => {
+            currentScreenshotBlob = blob;
+            
+            const url = URL.createObjectURL(blob);
+            showPreview(url);
+            
+            showLoading(false);
+
+            if (hideControls) {
+              document.querySelector('.controls').style.display = 'block';
+              document.getElementById('click-info').style.display = 'block';
+            }
+            
+            if (showLabels) {
+              removeCoordinateLabels();
+            }
+            
+          }, mimeType, quality);
+
+        }).catch(error => {
+          console.error('Lỗi chụp ảnh:', error);
+          
+          showLoading(false);
+          if (hideControls) {
+            document.querySelector('.controls').style.display = 'block';
+            document.getElementById('click-info').style.display = 'block';
+          }
+          if (showLabels) {
+            removeCoordinateLabels();
+          }
+          
+          showNotification('❌ Lỗi khi chụp ảnh: ' + error.message, 'error');
+        });
+      }, 300);
+    }
+
+    function takeScreenshotHD() {
+      takeScreenshot('hd');
+    }
+
+    function exportToCSV() {
+      const data = collectData();
+      if (data.length === 0) {
+        showNotification('⚠️ Không có dữ liệu để xuất!', 'error');
+        return;
+      }
+
+      const csvContent = data.map(row => 
+        Object.values(row).map(val => `"${val}"`).join(',')
+      ).join('\n');
+      
+      const headers = Object.keys(data[0]).map(key => `"${key}"`).join(',');
+      const fullCSV = headers + '\n' + csvContent;
+
+      const blob = new Blob(['\ufeff' + fullCSV], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `BIDV_ToaDo_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      
+      showNotification('📄 Đã xuất file CSV');
+    }
+
+    function exportToExcel() {
+      const data = collectData();
+      if (data.length === 0) {
+        showNotification('⚠️ Không có dữ liệu để xuất!', 'error');
+        return;
+      }
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(data);
+      
+      const colWidths = Object.keys(data[0]).map(key => ({ wch: Math.max(key.length, 15) }));
+      ws['!cols'] = colWidths;
+      
+      XLSX.utils.book_append_sheet(wb, ws, "Tọa độ BIDV");
+      XLSX.writeFile(wb, `BIDV_ToaDo_${new Date().toISOString().split('T')[0]}.xlsx`);
+      
+      showNotification('📊 Đã xuất file Excel');
+    }
+
+    function exportToGoogleSheets() {
+      const data = collectData();
+      if (data.length === 0) {
+        showNotification('⚠️ Không có dữ liệu để xuất!', 'error');
+        return;
+      }
+
+      const headers = Object.keys(data[0]).join(',');
+      const csvData = data.map(row => Object.values(row).map(val => `"${val}"`).join(',')).join('\n');
+      const csvContent = headers + '\n' + csvData;
+
+      const sheetsUrl = `https://docs.google.com/spreadsheets/create`;
+      
+      navigator.clipboard.writeText(csvContent).then(() => {
+        showNotification('✅ Dữ liệu CSV đã copy! Sẽ mở Google Sheets...', 'info');
+        
+        setTimeout(() => {
+          window.open(sheetsUrl, '_blank');
+          alert(`📋 Hướng dẫn:
+1. Dán (Ctrl+V) dữ liệu vào Google Sheets
+2. Chọn "Data" → "Split text to columns"
+3. Chọn "Comma" làm delimiter`);
+        }, 1000);
+      }).catch(() => {
+        exportToCSV();
+      });
+    }
+
+    function createMyMap() {
+      const data = collectData();
+      if (data.length === 0) {
+        showNotification('⚠️ Vui lòng nhập ít nhất một tọa độ!', 'error');
+        return;
+      }
+
+      let kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <n>BIDV - Bản đồ TSBĐ &amp; TSSS</n>
+    <description>Tạo từ BIDV Map Tool</description>
+    <Style id="tsbd-style">
+      <IconStyle>
+        <color>ff4cc9f2</color>
+        <scale>1.2</scale>
+      </IconStyle>
+    </Style>
+    <Style id="tsss-style">
+      <IconStyle>
+        <color>ff007d78</color>
+        <scale>1.0</scale>
+      </IconStyle>
+    </Style>`;
+
+      data.forEach(item => {
+        const styleId = item['Loại'].includes('TSBĐ') ? 'tsbd-style' : 'tsss-style';
+        kmlContent += `
+    <Placemark>
+      <n>${item['Loại']}</n>
+      <description>
+        Tọa độ: ${item['Vĩ độ (Latitude)']}, ${item['Kinh độ (Longitude)']}
+        ${item['Khoảng cách từ TSBĐ'] ? `&lt;br/&gt;Khoảng cách: ${item['Khoảng cách từ TSBĐ']}` : ''}
+        &lt;br/&gt;Địa chỉ: ${item['Phường/Quận']}
+        &lt;br/&gt;Thời gian: ${item['Thời gian']}
+      </description>
+      <styleUrl>#${styleId}</styleUrl>
+      <Point>
+        <coordinates>${item['Kinh độ (Longitude)']},${item['Vĩ độ (Latitude)']},0</coordinates>
+      </Point>
+    </Placemark>`;
+      });
+
+      kmlContent += `
+  </Document>
+</kml>`;
+
+      const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `BIDV_MyMap_${new Date().toISOString().split('T')[0]}.kml`;
+      a.click();
+
+      setTimeout(() => {
+        showNotification('✅ File KML đã tải xuống!');
+        alert(`📋 Hướng dẫn tạo My Map:
+1. Truy cập: https://mymaps.google.com
+2. Nhấn "CREATE A NEW MAP"
+3. Nhấn "Import" → Chọn file KML vừa tải
+4. Đặt tên và mô tả cho bản đồ
+5. Nhấn "Share" để chia sẻ công khai`);
+      }, 1000);
+    }
+
+    function openMyMaps() {
+      window.open('https://mymaps.google.com', '_blank');
+    }
+
+    function shareMyMap() {
+      const mapUrl = prompt(`🔗 Nhập URL Google My Maps của bạn:
+(Lấy từ nút "Share" trong My Maps)`, '');
+      
+      if (mapUrl && mapUrl.trim()) {
+        document.getElementById('my-maps-info').style.display = 'block';
+        document.getElementById('my-maps-link').href = mapUrl;
+        document.getElementById('my-maps-link').textContent = 'Xem My Map →';
+        
+        localStorage.setItem('bidv-my-maps-url', mapUrl);
+        showNotification('✅ Đã lưu link My Maps!');
+      }
+    }
+
+    function loadFromFile() {
+      document.getElementById('file-input').click();
+    }
+
+    function handleFileLoad(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          let data = [];
+          
+          if (file.name.endsWith('.csv')) {
+            const csv = e.target.result;
+            const lines = csv.split('\n').filter(line => line.trim());
+            const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+            
+            for (let i = 1; i < lines.length; i++) {
+              const values = lines[i].split(',').map(v => v.replace(/"/g, '').trim());
+              const row = {};
+              headers.forEach((header, index) => {
+                row[header] = values[index];
+              });
+              data.push(row);
+            }
+          } else if (file.name.endsWith('.xlsx')) {
+            const workbook = XLSX.read(e.target.result, { type: 'binary' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            data = XLSX.utils.sheet_to_json(worksheet);
+          }
+
+          loadDataToForm(data);
+          
+        } catch (error) {
+          showNotification('❌ Lỗi khi đọc file: ' + error.message, 'error');
+        }
+      };
+
+      if (file.name.endsWith('.xlsx')) {
+        reader.readAsBinaryString(file);
+      } else {
+        reader.readAsText(file, 'utf-8');
+      }
+    }
+
+    function generateShareURL() {
+      const data = {
+        tsbd: document.getElementById('tsbd').value,
+        tsss1: document.getElementById('tsss1').value,
+        tsss2: document.getElementById('tsss2').value,
+        tsss3: document.getElementById('tsss3').value
+      };
+      
+      const encoded = btoa(JSON.stringify(data));
+      const url = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
+      
+      document.getElementById('share-url').style.display = 'block';
+      document.getElementById('share-url-input').value = url;
+      showNotification('🔗 Đã tạo link chia sẻ');
+    }
+
+    function copyToClipboard() {
+      const input = document.getElementById('share-url-input');
+      if (input.value) {
+        input.select();
+        input.setSelectionRange(0, 99999);
+        document.execCommand('copy');
+        showNotification('✅ Đã copy link chia sẻ!');
+      } else {
+        showNotification('⚠️ Chưa có link để copy!', 'error');
+      }
+    }
+
+    function downloadPreviewImage() {
+      if (currentScreenshotBlob && currentScreenshotFilename) {
+        const url = URL.createObjectURL(currentScreenshotBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = currentScreenshotFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showNotification(`✅ Đã tải xuống: ${currentScreenshotFilename}`);
+        closePreview();
+      }
+    }
+
+    function shareImage() {
+      if (navigator.share && currentScreenshotBlob) {
+        const file = new File([currentScreenshotBlob], currentScreenshotFilename, {
+          type: currentScreenshotBlob.type
+        });
+        
+        navigator.share({
+          title: 'BIDV - Bản đồ TSBĐ & TSSS',
+          text: 'Bản đồ vị trí tài sản từ BIDV',
+          files: [file]
+        }).then(() => {
+          showNotification('✅ Đã chia sẻ ảnh!');
+        }).catch(err => {
+          copyImageToClipboard();
+        });
+      } else {
+        copyImageToClipboard();
+      }
+    }
+
+    function closePreview() {
+      const preview = document.getElementById('screenshot-preview');
+      preview.style.display = 'none';
+      
+      const image = document.getElementById('preview-image');
+      if (image.src) {
+        URL.revokeObjectURL(image.src);
+      }
+    }
 
     // Sample district boundaries for HCMC
     const districtBoundaries = {
@@ -1134,10 +1716,7 @@
       }
     }
 
-    // Screenshot functionality
-    let currentScreenshotBlob = null;
-    let currentScreenshotFilename = null;
-
+    // Screenshot functionality 
     function takeScreenshot(format = 'png') {
       const hideControls = document.getElementById('hide-controls').checked;
       const addWatermark = document.getElementById('add-watermark').checked;
