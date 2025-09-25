@@ -390,28 +390,30 @@
     <div class="instruction">
       <strong>📋 Hướng dẫn:</strong><br>
       • Toggle để chuyển đổi Google Maps ↔ OSM<br>
+      • Google Maps: Đường phố/Vệ tinh/Kết hợp/Địa hình<br>
       • Nhấp vào bản đồ để đặt tọa độ<br>
-      • Bật layer phường để xem vị trí hành chính
+      • Bật layer phường để xem vị trí hành chính<br>
+      <small style="color: #f0b90b;">⚠️ Google Maps dùng demo API key (có giới hạn)</small>
     </div>
 
-    <div><strong>TSBĐ (Trụ sở Bảo đảm):</strong><br>
+    <div><strong>TSBĐ:</strong><br>
       <input id="tsbd" value="" placeholder="Nhấp vào bản đồ hoặc nhập Lat, Lng" />
       <div id="tsbd-district" style="font-size: 11px; color: #f2c94c; margin-top: 2px;"></div>
     </div>
 
-    <div><strong>TSSS1 (Tài sản Siêu sung 1):</strong><br>
+    <div><strong>TSSS1:</strong><br>
       <input id="tsss1" value="" placeholder="Nhấp vào bản đồ hoặc nhập Lat, Lng" />
       <span class="distance-display" id="dist-tsss1"></span>
       <div id="tsss1-district" style="font-size: 11px; color: #f2c94c; margin-top: 2px;"></div>
     </div>
 
-    <div><strong>TSSS2 (Tài sản Siêu sung 2):</strong><br>
+    <div><strong>TSSS2:</strong><br>
       <input id="tsss2" value="" placeholder="Nhấp vào bản đồ hoặc nhập Lat, Lng" />
       <span class="distance-display" id="dist-tsss2"></span>
       <div id="tsss2-district" style="font-size: 11px; color: #f2c94c; margin-top: 2px;"></div>
     </div>
 
-    <div><strong>TSSS3 (Tài sản Siêu sung 3):</strong><br>
+    <div><strong>TSSS3:</strong><br>
       <input id="tsss3" value="" placeholder="Nhấp vào bản đồ hoặc nhập Lat, Lng" />
       <span class="distance-display" id="dist-tsss3"></span>
       <div id="tsss3-district" style="font-size: 11px; color: #f2c94c; margin-top: 2px;"></div>
@@ -598,7 +600,32 @@
     function changeMapType() {
       if (googleMap && currentMap === 'google') {
         const mapType = document.getElementById('mapType').value;
-        googleMap.setMapTypeId(mapType);
+        console.log('Changing Google Maps type to:', mapType);
+        
+        try {
+          switch(mapType) {
+            case 'roadmap':
+              googleMap.setMapTypeId(google.maps.MapTypeId.ROADMAP);
+              break;
+            case 'satellite':
+              googleMap.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+              break;
+            case 'hybrid':
+              googleMap.setMapTypeId(google.maps.MapTypeId.HYBRID);
+              break;
+            case 'terrain':
+              googleMap.setMapTypeId(google.maps.MapTypeId.TERRAIN);
+              break;
+            default:
+              googleMap.setMapTypeId(google.maps.MapTypeId.ROADMAP);
+          }
+          showNotification(`🗺️ Đã chuyển sang chế độ ${mapType}`);
+        } catch (error) {
+          console.error('Error changing map type:', error);
+          showNotification('❌ Lỗi khi đổi loại bản đồ', 'error');
+        }
+      } else {
+        showNotification('⚠️ Chức năng này chỉ có trên Google Maps', 'error');
       }
     }
 
@@ -781,19 +808,23 @@
       const addWatermark = document.getElementById('add-watermark').checked;
       const showLabels = document.getElementById('show-labels').checked;
       
+      console.log('Taking screenshot with options:', { format, hideControls, addWatermark, showLabels });
       showLoading(true);
       
       // Add coordinate labels if enabled
       if (showLabels) {
+        console.log('Adding coordinate labels...');
         addCoordinateLabels();
       }
       
       // Hide controls if selected
       if (hideControls) {
+        console.log('Hiding controls...');
         document.querySelector('.controls').style.display = 'none';
         document.getElementById('click-info').style.display = 'none';
       }
 
+      // Wait a bit longer for UI updates and map rendering
       setTimeout(() => {
         const options = {
           allowTaint: true,
@@ -802,11 +833,22 @@
           width: window.innerWidth,
           height: window.innerHeight,
           backgroundColor: '#ffffff',
-          logging: false
+          logging: false,
+          ignoreElements: (element) => {
+            // Skip certain elements that might cause issues
+            return element.classList.contains('leaflet-control-container') ||
+                   element.classList.contains('gm-style-cc') ||
+                   element.classList.contains('gmnoprint');
+          }
         };
 
+        console.log('Starting html2canvas with options:', options);
+
         html2canvas(document.body, options).then(canvas => {
+          console.log('html2canvas completed, canvas size:', canvas.width, 'x', canvas.height);
+          
           if (addWatermark) {
+            console.log('Adding watermark...');
             addWatermarkToCanvas(canvas);
           }
 
@@ -821,6 +863,7 @@
             quality = 1.0;
           }
 
+          // Generate filename
           const tsbdCoords = document.getElementById('tsbd').value.trim();
           if (tsbdCoords) {
             const [lat, lng] = tsbdCoords.split(',').map(x => x.trim());
@@ -830,6 +873,7 @@
           }
 
           canvas.toBlob((blob) => {
+            console.log('Screenshot blob created:', blob.size, 'bytes');
             currentScreenshotBlob = blob;
             
             const url = URL.createObjectURL(blob);
@@ -837,21 +881,28 @@
             
             showLoading(false);
 
+            // Restore UI
             if (hideControls) {
+              console.log('Restoring controls...');
               document.querySelector('.controls').style.display = 'block';
               document.getElementById('click-info').style.display = 'block';
             }
             
             if (showLabels) {
+              console.log('Removing coordinate labels...');
               removeCoordinateLabels();
             }
+            
+            showNotification(`✅ Đã chụp ảnh thành công (${format.toUpperCase()})`);
             
           }, mimeType, quality);
 
         }).catch(error => {
-          console.error('Lỗi chụp ảnh:', error);
+          console.error('html2canvas error:', error);
           
           showLoading(false);
+          
+          // Restore UI even on error
           if (hideControls) {
             document.querySelector('.controls').style.display = 'block';
             document.getElementById('click-info').style.display = 'block';
@@ -862,7 +913,7 @@
           
           showNotification('❌ Lỗi khi chụp ảnh: ' + error.message, 'error');
         });
-      }, 300);
+      }, 800); // Increased wait time for better map rendering
     }
 
     function takeScreenshotHD() {
@@ -1810,8 +1861,11 @@
       takeScreenshot('hd');
     }
 
-    // Add coordinate labels on map
+    // Add coordinate labels on map for screenshots
     function addCoordinateLabels() {
+      // Remove any existing labels first
+      removeCoordinateLabels();
+      
       const inputs = {
         tsbd: document.getElementById("tsbd").value,
         tsss1: document.getElementById("tsss1").value,
@@ -1819,42 +1873,55 @@
         tsss3: document.getElementById("tsss3").value
       };
 
+      let labelCount = 0;
       Object.entries(inputs).forEach(([key, value]) => {
         if (value.trim()) {
           const [lat, lng] = value.split(',').map(x => parseFloat(x.trim()));
           const type = key === 'tsbd' ? 'TSBĐ' : `TSSS ${key.slice(-1)}`;
-          const district = document.getElementById(`${key}-district`).textContent;
+          const district = document.getElementById(`${key}-district`).textContent || '';
+          const distance = key !== 'tsbd' ? document.getElementById(`dist-${key}`).textContent : '';
           
-          // Create floating label
+          // Create floating label positioned on map
           const label = document.createElement('div');
           label.className = 'coordinate-label';
           label.id = `label-${key}`;
+          
+          // Calculate position based on current markers or use fixed positions
+          const topPosition = 120 + labelCount * 90; // Spread out vertically
+          const rightPosition = 20;
+          
           label.style.cssText = `
             position: fixed;
-            top: ${50 + Object.keys(inputs).indexOf(key) * 80}px;
-            right: 20px;
+            top: ${topPosition}px;
+            right: ${rightPosition}px;
             background: rgba(0, 125, 120, 0.95);
             color: #f2c94c;
-            padding: 8px 12px;
+            padding: 10px 15px;
             border-radius: 8px;
-            font-size: 12px;
+            font-size: 14px;
             font-weight: bold;
-            z-index: 999;
+            z-index: 998;
             pointer-events: none;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
             border: 2px solid #f2c94c;
             backdrop-filter: blur(5px);
+            min-width: 200px;
+            font-family: Arial, sans-serif;
           `;
           
           label.innerHTML = `
-            <div>${type}</div>
-            <div style="font-size: 10px;">${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
-            <div style="font-size: 10px;">${district.replace('📍 ', '')}</div>
+            <div style="font-size: 16px; margin-bottom: 4px; color: #f2c94c;">${type}</div>
+            <div style="font-size: 13px; color: #fff; margin-bottom: 2px;">📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
+            ${district ? `<div style="font-size: 12px; color: #ccc;">${district.replace('📍 ', '')}</div>` : ''}
+            ${distance ? `<div style="font-size: 12px; color: #f2c94c;">${distance}</div>` : ''}
           `;
           
           document.body.appendChild(label);
+          labelCount++;
         }
       });
+      
+      console.log(`Added ${labelCount} coordinate labels for screenshot`);
     }
 
     function removeCoordinateLabels() {
